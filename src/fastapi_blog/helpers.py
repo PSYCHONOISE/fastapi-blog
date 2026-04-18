@@ -8,7 +8,9 @@ from pymdownx import emoji  # type: ignore
 
 
 @functools.lru_cache
-def list_posts(published: bool = True, posts_dirname="posts") -> list[dict]:
+def list_posts(
+    published: bool = True, posts_dirname: str = "posts"
+) -> tuple[dict, ...]:
     posts: list[dict] = []
     for post in pathlib.Path(".").glob(f"{posts_dirname}/*.md"):
         raw: str = post.read_text().split("---")[1]
@@ -19,7 +21,7 @@ def list_posts(published: bool = True, posts_dirname="posts") -> list[dict]:
     posts = [x for x in filter(lambda x: x["published"] is True, posts)]
 
     posts.sort(key=lambda x: x["date"], reverse=True)
-    return [x for x in filter(lambda x: x["published"] is published, posts)]
+    return tuple(x for x in filter(lambda x: x["published"] is published, posts))
 
 
 def load_content_from_markdown_file(path: pathlib.Path) -> dict[str, str | dict]:
