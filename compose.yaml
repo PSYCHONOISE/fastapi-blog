@@ -1,0 +1,34 @@
+# Compose stack for the FastAPI Blog demo image.
+# The filesystem is the only mandatory backend; posts remain on the host.
+
+name: fastapi-blog
+
+services:
+  blog:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: fastapi-blog:0.9.0
+    ports:
+      - '8000:8000'
+    environment:
+      PORT: 8000
+    volumes:
+      - type: bind
+        source: ./tests/examples/posts
+        target: /app/posts
+        read_only: true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import sys, urllib.request;
+          sys.exit(0 if urllib.request.urlopen(
+            'http://127.0.0.1:8000/api/v1/health/ready', timeout=4
+          ).status == 200 else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=77.0.0"]
+requires = ["setuptools>=84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "fastapi-blog"
-version = "0.7.0"
+version = "0.9.0"
 description = "Blogging for FastAPI"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -20,119 +20,68 @@ classifiers = [
   "Framework :: FastAPI",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Text Processing :: Markup :: Markdown",
 ]
 license-files = ["LICENSE.md"]
 dependencies = [
-  "fastapi>=0.116.2",
+  'cryptography>=42.0',  # Added by obscurator -- strings.encryption: aes256gcm needs it at runtime.
+  "fastapi>=0.162.0",
   "jinja2>=3.1.6",
   "jinja2-time>=0.2.0",
-  "markdown>=3.9",
-  "nh3>=0.2.18",
-  "pydantic>=2.9",
-  "pyyaml>=6.0.2",
-  "pymdown-extensions>=10.16.1",
-  "uvicorn>=0.35.0",
+  "markdown>=3.11.2",
+  "nh3>=0.3.7",
+  "pydantic>=2.14.1",
+  "pyyaml>=6.0.3",
+  "pymdown-extensions>=12.3",
+  "uvicorn>=0.54.0",
 ]
 
 [project.optional-dependencies]
+# Admin panel (web UI) and session-based authentication
+admin = [
+  "starlette-admin[i18n]>=1.0.3",
+  "sqlalchemy[asyncio]>=2.1.6",
+  "aiosqlite>=0.22.1",
+  "itsdangerous>=2.2.0",
+  # `passlib` (unmaintained since 2020) is replaced by direct `bcrypt`
+  # usage (see `admin/passwords.py`), which lifts the old `bcrypt<4.1` pin
+  "bcrypt>=5.0.0",
+  "python-multipart>=0.0.32",
+]
+# JSON-LD expansion and N-Quads output
+jsonld = [
+  "pyld>=3.3.0",
+]
 dev = [
   "httpx>=0.28.1",
-  "ruff>=0.13.0",
-  "pytest>=8.4.2",
-  "coverage>=7.10.6",
-  "mypy>=1.18.1",
-  "types-Markdown>=3.9.0",
-  "types-PyYAML>=6.0.12.20250915",
+  "ruff>=0.17.3",
+  "pytest>=9.2.0",
+  "coverage>=7.17.0",
+  "mypy>=2.4.1",
+  "types-Markdown>=3.10.2.20261007",
+  "types-PyYAML>=6.0.12.20260906",
 ]
 
 [project.urls]
 
-bugs = "https://github.com/pydanny/fastapi-blog/issues"
-changelog = "https://github.com/pydanny/fastapi-blog/blob/master/changelog.md"
-homepage = "https://github.com/pydanny/fastapi-blog"
+bugs = "https://github.com/PSYCHONOISE/fastapi-blog/issues"
+changelog = "https://github.com/PSYCHONOISE/fastapi-blog/blob/master/CHANGELOG.md"
+homepage = "https://github.com/PSYCHONOISE/fastapi-blog"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "*" = ["*.*"]
+"fastapi_blog.translations" = ["*/LC_MESSAGES/*.mo", "*/LC_MESSAGES/*.po"]
 
-
-# Mypy
-# ----
-
-[tool.mypy]
-files = "."
-exclude = [
-  "tests/*"
-]
-
-# Use strict defaults
-# strict = true
-# warn_unreachable = true
-# warn_no_return = true
-
-
-
-# Ruff
-# ----
-
-[tool.ruff]
-target-version = "py312"
-line-length = 88
-
-[tool.ruff.lint]
-select = [
-    # Pyflakes
-    "F",
-    # Pycodestyle
-    "E",
-    "W",
-    # isort
-    "I",
-    # pyupgrade
-    "UP",
-    # pydocstyle
-    "D",
-]
-ignore = [
-    "E501",  # line too long - ruff formatter takes care of this
-    "D100",  # Missing docstring in public module
-    "D101",  # Missing docstring in public class
-    "D102",  # Missing docstring in public method
-    "D103",  # Missing docstring in public function
-    "D104",  # Missing docstring in public package
-    "D105",  # Missing docstring in magic method
-    "D203",  # 1 blank line required before class docstring (conflicts with D211)
-    "D213",  # Multi-line docstring summary should start at the second line (conflicts with D212)
-]
-
-[tool.ruff.lint.per-file-ignores]
-# Allow unused imports in __init__ files as these are convenience imports
-"**/__init__.py" = [ "F401" ]
-
-[tool.ruff.lint.isort]
-lines-after-imports = 2
-section-order = [
-    "future",
-    "standard-library",
-    "third-party",
-    "first-party",
-    "project",
-    "local-folder",
-]
-
-[tool.ruff.lint.isort.sections]
-"project" = [
-    "src",
-    "tests",
-]
-
-[tool.ruff.format]
-docstring-code-format = true
-docstring-code-line-length = 20
-
+[tool.pytest.ini_options]
+# Scope collection to our own tests: `+/` holds reference material (see
+# AGENTS.md) that must stay out of every check, and it isn't even valid
+# Python (cookiecutter templates with `{{ }}` placeholders).
+testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["src"]

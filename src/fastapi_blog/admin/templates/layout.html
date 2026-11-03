@@ -1,0 +1,284 @@
+{#
+  Unified layout for every authenticated admin page: the built-in
+  Role/User management pages (which extend "@starlette-admin/*.html",
+  themselves extending the bare "layout.html" name this file shadows) and
+  this project's own pages (home.html, markdown_list.html,
+  markdown_edit.html, which extend this file directly).
+
+  Adds a theme toggle and a locale switcher through the stock
+  `navbar_extra` block (see @starlette-admin/templates/layout.html), so
+  both switchers render identically everywhere instead of duplicating
+  per-page CSS/JS. The locale switcher uses our own URL-redirect scheme
+  (one Admin instance per locale, see admin/__init__.py) rather than the
+  framework's built-in cookie-based i18n_config.language_switcher, which
+  this project deliberately leaves unset.
+#}
+{% extends "@starlette-admin/layout.html" %}
+
+{% block head_css %}
+{{ super() }}
+<style>
+/* Keep the top navbar (theme/language/user menu) visible while the page
+   content scrolls, matching the sidebar's own fixed position. */
+header.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+}
+/* Tabler hardcodes `overflow-y: scroll` on `.navbar-vertical.navbar-expand-*`
+   (specificity 0,2,0), which reserves a scrollbar gutter even when the menu
+   is nowhere near tall enough to need one (a permanent, non-functional
+   scrollbar). `auto` only shows it when there's something to scroll; the
+   extra `aside` keeps this rule's specificity above the one it overrides. */
+aside.navbar-vertical.navbar-expand-lg {
+  overflow-y: auto;
+}
+/* Keep card headings, icons and primary actions aligned across every view. */
+.card-header {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+}
+.card-header .card-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.card-header .card-title > .icon,
+.card-header .card-title > svg {
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+.card-header .card-actions {
+  margin-inline-start: auto;
+}
+.card-header .btn-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  margin: 0;
+}
+.card-header .btn-list > * {
+  margin: 0;
+}
+.card-header .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  height: 2.25rem;
+  padding: .5rem .875rem;
+  font-size: .875rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.card-header .btn > .icon {
+  width: 1em;
+  height: 1em;
+  margin: 0;
+}
+.table .btn-icon > .icon {
+  width: 1em;
+  height: 1em;
+}
+/* Small status badges need enough space and a theme-aware text contrast. */
+.badge-sm {
+  --tblr-badge-font-size: .71428571em;
+  --tblr-badge-icon-size: 1em;
+  --tblr-badge-padding-y: 4px;
+  --tblr-badge-padding-x: 4px;
+}
+/* Theme changes should not leave navbar controls animating behind the page. */
+header.navbar :is(button, a, .dropdown-toggle) {
+  transition-delay: 0s !important;
+}
+/* EasyMDE's defaults use dark glyphs that disappear on a dark surface. */
+html[data-bs-theme='dark'] .editor-toolbar {
+  border-color: var(--tblr-border-color);
+}
+html[data-bs-theme='dark'] .editor-toolbar a,
+html[data-bs-theme='dark'] .editor-toolbar button {
+  color: var(--tblr-body-color) !important;
+}
+html[data-bs-theme='dark'] .editor-toolbar a:hover,
+html[data-bs-theme='dark'] .editor-toolbar a:focus,
+html[data-bs-theme='dark'] .editor-toolbar a.active,
+html[data-bs-theme='dark'] .editor-toolbar button:hover,
+html[data-bs-theme='dark'] .editor-toolbar button:focus {
+  color: var(--tblr-body-color) !important;
+  background-color: var(--tblr-bg-surface-secondary) !important;
+  border-color: var(--tblr-border-color) !important;
+}
+html[data-bs-theme='dark'] .editor-toolbar i.separator {
+  border-left-color: var(--tblr-border-color);
+  border-right-color: transparent;
+}
+@media (min-width: 992px) {
+  /* Narrow the sidebar from Tabler's default 15rem to 14rem. The width and
+     the sibling margin-left (which makes room for the fixed sidebar) must
+     change together, or the two drift apart: either the content starts
+     under the sidebar (margin too small) or a gap of bare background opens
+     up next to it (margin too big). Tabler itself keeps them in sync this
+     same way (see `.navbar-expand-lg.navbar-vertical{width:15rem}` and
+     `.navbar-expand-lg.navbar-vertical~.navbar,~.page-wrapper{margin-left:
+     15rem}` in tabler.min.css) — this just overrides both to the same new
+     value, each at >= Tabler's own specificity so it actually wins. The
+     margin-left rule is scoped to the same `min-width:992px` breakpoint as
+     Tabler's own, since that's also where the sidebar switches from an
+     off-canvas (toggled) panel to always-visible. */
+  aside.navbar-vertical.navbar-expand-lg {
+    width: 14rem;
+  }
+  .navbar-expand-lg.navbar-vertical ~ .navbar,
+  .navbar-expand-lg.navbar-vertical ~ .page-wrapper {
+    margin-left: 14rem;
+  }
+}
+/* Tabler sets `margin-left: calc(-100% + 100vw)` on `:root` (a scrollbar-
+   width compensation trick) so normal-flow content shifts right by the
+   scrollbar's width. The sidebar is `position: fixed`, so it ignores that
+   shift and stays flush at the viewport's left edge, but `.page-wrapper`/
+   `.navbar` are normal flow and get shifted on top of their own
+   `margin-left` above — opening a gap (the width of the scrollbar) between
+   the sidebar's right edge and the content's left edge. Zeroing it out
+   here removes the gap. */
+:root {
+  margin-left: 0;
+  /* Tabler's trick above was also hiding a second issue: `.container-xl`
+     is centered with `margin: auto` inside `.page-wrapper`, so its
+     position depends on the viewport's *content* width — which shrinks
+     by the scrollbar's width on a page tall enough to scroll. A short
+     page (e.g. an empty Users table) has no scrollbar and stays full
+     width, so its container sits a few pixels further right than on a
+     long page (e.g. Posts) right next to it in the sidebar. Reserving
+     the scrollbar's gutter unconditionally keeps the content width (and
+     so the container's position) identical whether or not a given page
+     actually needs to scroll. */
+  scrollbar-gutter: stable;
+}
+/* Below the `lg` breakpoint, Tabler hides `header.navbar` entirely
+   (`d-none d-lg-flex`) and the sidebar collapses to an off-canvas panel,
+   leaving only its own top row (brand, hamburger, user menu) visible. That
+   row has no hook for our own content (see `navbar_extra` below), so the
+   theme toggle and language switcher simply vanished below 992px. Forcing
+   `header.navbar` to stay visible brings them back, but also duplicates
+   its own toggler (targets an always-empty `#navbar-menu` collapse — never
+   populated, so hiding it loses nothing) and its own user-menu trigger
+   (redundant with the one already in the sidebar's row); hiding just those
+   two avoids showing the same "Logout" menu twice. */
+@media (max-width: 991.98px) {
+  .card-header {
+    align-items: flex-start;
+  }
+  .card-header .card-title {
+    flex: 1 1 100%;
+  }
+  .card-header .card-actions {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+  .card-header .card-actions .btn-list {
+    justify-content: flex-start;
+  }
+  header.navbar.navbar-expand-md {
+    display: flex !important;
+  }
+  header.navbar .navbar-toggler,
+  header.navbar .nav-item.dropdown.ms-3 {
+    display: none !important;
+  }
+}
+</style>
+{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%2320669d'/%3E%3Cpath%20d='M18%2014h28v6H18zM18%2029h28v6H18zM18%2044h18v6H18z'%20fill='white'/%3E%3C/svg%3E">
+<script>
+// Apply the stored theme before first paint, to avoid a flash of the
+// wrong theme (Tabler reads `data-bs-theme` on <html> at render time).
+(function () {
+  try {
+    var stored = localStorage.getItem('theme');
+    var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-bs-theme', theme);
+  } catch (e) {}
+})();
+</script>
+{% endblock %}
+
+{% block navbar_extra %}
+<div class="nav-item">
+  <button type="button" class="btn" id="theme-toggle" title="{{ _('Toggle theme') }}" aria-label="{{ _('Toggle theme') }}">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" id="theme-toggle-icon" aria-hidden="true">
+      <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+    </svg>
+  </button>
+</div>
+{% if available_locales and available_locales | length > 1 %}
+<div class="nav-item dropdown">
+  <button type="button" class="btn dropdown-toggle" data-bs-toggle="dropdown">
+    <i class="fa-solid fa-language" aria-hidden="true"></i>
+    {{ locale_names[current_locale] }}
+  </button>
+  <div class="dropdown-menu dropdown-menu-end dropdown-menu-arrow">
+    {% for lang in available_locales %}
+      <a href="#" class="dropdown-item custom-language-item" data-lang="{{ lang }}">{{ locale_names[lang] }}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{{ super() }}
+{% endblock %}
+
+{% block tail %}
+{{ super() }}
+<script>
+(function () {
+  var btn = document.getElementById('theme-toggle');
+  var icon = document.getElementById('theme-toggle-icon');
+
+  var ICON_PATHS = {
+    light: '<path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>',
+    dark: '<path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278zM4.858 1.311A7.269 7.269 0 0 0 1.025 7.71c0 4.02 3.279 7.276 7.319 7.276a7.316 7.316 0 0 0 5.205-2.162c-.337.042-.68.063-1.029.063-4.61 0-8.343-3.714-8.343-8.29 0-1.167.242-2.278.681-3.286z"/>'
+  };
+  function applyIcon(theme) {
+    if (icon) icon.innerHTML = ICON_PATHS[theme] || ICON_PATHS.light;
+  }
+  applyIcon(document.documentElement.getAttribute('data-bs-theme') || 'light');
+
+  if (btn) {
+    btn.addEventListener('click', function () {
+      var next = (document.documentElement.getAttribute('data-bs-theme') || 'light') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-bs-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
+      applyIcon(next);
+    });
+  }
+
+  var defaultLocale = {{ default_locale | tojson | safe }};
+  document.querySelectorAll('.custom-language-item').forEach(function (item) {
+    item.addEventListener('click', function (e) {
+      e.preventDefault();
+      var target = this.getAttribute('data-lang');
+      var path = window.location.pathname;
+      var query = window.location.search;
+      var newPath;
+      if (target === defaultLocale) {
+        var m = path.match(/^\/([a-z]{2})\/admin(\/.*)?$/);
+        newPath = m ? '/admin' + (m[2] || '') : path;
+      } else {
+        var dm = path.match(/^\/admin(\/.*)?$/);
+        var lm = path.match(/^\/([a-z]{2})\/admin(\/.*)?$/);
+        if (dm) newPath = '/' + target + '/admin' + (dm[1] || '');
+        else if (lm) newPath = '/' + target + '/admin' + (lm[2] || '');
+        else newPath = '/' + target + '/admin';
+      }
+      window.location.href = newPath + query;
+    });
+  });
+})();
+</script>
+{% endblock %}

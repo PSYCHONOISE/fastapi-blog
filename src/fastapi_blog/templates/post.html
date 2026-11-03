@@ -1,4 +1,4 @@
-{% extends "layout/base.html" %}
+{% extends "layouts/base.html" %}
 {% block content %}
 <h1>{{ post.title }}</h1>
 
@@ -6,11 +6,11 @@
 {{ post.content|safe }}
 
 {% if post.tags and post.tags | length > 0 %}
-<p>Tags: 
+<p>{{ t.blog.tags_prefix }} 
 
 
 {% for tag in post.tags %}
-    <a href="{{ url_for('blog_tag', tag_id=tag) }}">{{ tag }}</a>
+    <a href="{{ locale_url_for('blog_tag', tag_id=tag) }}">{{ tag }}</a>
 {% endfor %}
 </p>
 {% endif %}

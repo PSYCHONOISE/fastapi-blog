@@ -5,15 +5,7 @@ import fastapi_blog
 
 app = FastAPI()
 
-
-@app.get("/api")
+@app.get('/api')
 async def index() -> dict:
-    return {
-        "message": "Check out the blog at the URL",
-        "url": "http://localhost:8000",
-    }
-
-
-# Because the prefix is None, the call to add_blog_to_fastapi
-# needs to happen after the other view functions are defined.
+    return {'message': 'Check out the blog at the URL', 'url': 'http://localhost:8000'}
 app = fastapi_blog.add_blog_to_fastapi(app, prefix=None)
